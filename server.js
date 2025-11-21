@@ -66,11 +66,12 @@ async function getBookDetail(bookUrl, numChapters = 20) {
     }
 }
 
-// API: /crawl?page=1&num_chapters=20
 app.get('/crawl', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const num_chapters = parseInt(req.query.num_chapters) || 20;
     const url = `https://www.po18cu.com/sort/0/${page}.html`;
+
+    console.log(`Bắt đầu crawl page ${page} với tối đa ${num_chapters} chương/truyện`);
 
     try {
         const { data } = await axios.get(url, {
@@ -88,9 +89,13 @@ app.get('/crawl', async (req, res) => {
             books.push({ title, url: bookUrl, author });
         });
 
+        console.log(`Tìm thấy ${books.length} truyện trên page ${page}`);
+
         const results = await Promise.all(
-            books.map(book => limitBooks(async () => {
+            books.map((book, idx) => limitBooks(async () => {
+                // console.log(`Đang crawl truyện ${idx + 1}/${books.length}: ${book.title}`);
                 const detail = await getBookDetail(book.url, num_chapters);
+                // console.log(`  → Hoàn tất ${detail.chapters.length} chương`);
                 return {
                     title: book.title,
                     author: book.author,
@@ -102,9 +107,8 @@ app.get('/crawl', async (req, res) => {
             }))
         );
 
-        // --- Thêm log số truyện và tổng số chương ---
         const totalChapters = results.reduce((sum, b) => sum + b.chapters.length, 0);
-        console.log(`Crawl xong: ${results.length} truyện, ${totalChapters} chương`);
+        console.log(`Crawl xong page ${page}: ${results.length} truyện, tổng ${totalChapters} chương`);
 
         res.json({ results });
     } catch (err) {
@@ -112,6 +116,7 @@ app.get('/crawl', async (req, res) => {
         res.status(500).json({ error: 'Crawl lỗi' });
     }
 });
+
 
 
 app.listen(PORT, () => console.log(`Server chạy ở http://localhost:${PORT}`));
